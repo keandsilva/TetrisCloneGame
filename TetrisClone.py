@@ -18,7 +18,7 @@ SCREEN_HEIGHT = GRID_HEIGHT * BLOCK_SIZE
 
 # Color Definitions (RGB)
 BLACK = (10, 10, 15)
-GRAY = (40, 40, 50)
+GRAY = (140, 140, 140)
 WHITE = (255, 255, 255)
 
 CYAN    = (0, 240, 240)   # I piece
@@ -82,7 +82,7 @@ class Piece:
 # ---------------------------------------------------------
 def create_grid(locked_positions={}):
     """Create a 2D grid array representing locked blocks."""
-    grid = [[BLACK for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
+    grid = [[GRAY for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
     for (x, y), color in locked_positions.items():
         if y >= 0:
             grid[y][x] = color
@@ -99,7 +99,7 @@ def convert_shape_format(piece):
 
 def valid_space(piece, grid):
     """Check if the current piece position is valid (not out of bounds or overlapping locked blocks)."""
-    accepted_positions = [[(j, i) for j in range(GRID_WIDTH) if grid[i][j] == BLACK] for i in range(GRID_HEIGHT)]
+    accepted_positions = [[(j, i) for j in range(GRID_WIDTH) if grid[i][j] == GRAY] for i in range(GRID_HEIGHT)]
     accepted_positions = [pos for sub in accepted_positions for pos in sub]
 
     formatted = convert_shape_format(piece)
@@ -115,7 +115,7 @@ def clear_rows(grid, locked):
     # 1. Find all full rows
     full_rows = []
     for i in range(GRID_HEIGHT):
-        if all(grid[i][j] != BLACK for j in range(GRID_WIDTH)):
+        if all(grid[i][j] != GRAY for j in range(GRID_WIDTH)):
             full_rows.append(i)
     
     if not full_rows:
@@ -143,7 +143,7 @@ def get_shape():
 
 def draw_window(surface, grid):
     """Draw the game board grid and locked blocks."""
-    surface.fill(BLACK)
+    surface.fill(GRAY)
     
     # Draw blocks
     for y in range(GRID_HEIGHT):
@@ -152,21 +152,23 @@ def draw_window(surface, grid):
     
     # Draw grid lines
     for i in range(GRID_HEIGHT):
-        pygame.draw.line(surface, GRAY, (0, i * BLOCK_SIZE), (SCREEN_WIDTH, i * BLOCK_SIZE))
+        pygame.draw.line(surface, BLACK, (0, i * BLOCK_SIZE), (SCREEN_WIDTH, i * BLOCK_SIZE), width=2)
     for j in range(GRID_WIDTH):
-        pygame.draw.line(surface, GRAY, (j * BLOCK_SIZE, 0), (j * BLOCK_SIZE, SCREEN_HEIGHT))
-    pygame.draw.line(surface, RED, (0, 4 * BLOCK_SIZE), (SCREEN_WIDTH, 4 * BLOCK_SIZE), 1)
+        pygame.draw.line(surface, BLACK, (j * BLOCK_SIZE, 0), (j * BLOCK_SIZE, SCREEN_HEIGHT,), width=2)
+    pygame.draw.line(surface, RED, (0, 4 * BLOCK_SIZE), (SCREEN_WIDTH, 4 * BLOCK_SIZE), 2)
 
 # ---------------------------------------------------------
 # 4. MAIN GAME LOOP
 # ---------------------------------------------------------
 def main():
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("Python Tetris")
+    pygame.display.set_caption("Tetris Clone | Score: {score}")
     clock = pygame.time.Clock()
 
     locked_positions = {}
     current_piece = get_shape()
+
+    score = 0
     
     fall_time = 0
     fall_speed = 0.5  # Seconds per fall step
@@ -187,8 +189,8 @@ def main():
                 for pos in convert_shape_format(current_piece):
                     locked_positions[pos] = current_piece.color
                 grid = create_grid(locked_positions)
-                clear_rows(grid, locked_positions)
-                
+                lines_cleared = clear_rows(grid, locked_positions)
+                score += lines_cleared * 10  # Example scoring: 10 points per line
                 if any(y < 4 for (x, y) in locked_positions):
                     game_over = True
                 
@@ -224,7 +226,8 @@ def main():
                     for pos in convert_shape_format(current_piece):
                         locked_positions[pos] = current_piece.color
                     grid = create_grid(locked_positions)
-                    clear_rows(grid, locked_positions)
+                    lines_cleared = clear_rows(grid, locked_positions)
+                    score += lines_cleared * 10  # Example scoring: 10 points per line
 
                     if any(y < 4 for (x, y) in locked_positions):
                         game_over = True
@@ -250,9 +253,10 @@ def main():
 
         # Draw Frame
         draw_window(screen, grid)
+        pygame.display.set_caption(f"Python Tetris | Score: {score}")
         pygame.display.update()
 
-    print("Game Over!")
+    print("Game Over! Final Score:", score)
     pygame.quit()
 
 if __name__ == "__main__":
