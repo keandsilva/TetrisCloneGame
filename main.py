@@ -1,3 +1,5 @@
+import asyncio
+
 import pygame
 import random
 
@@ -160,7 +162,7 @@ def draw_window(surface, grid):
 # ---------------------------------------------------------
 # 4. MAIN GAME LOOP
 # ---------------------------------------------------------
-def main():
+async def main():
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Tetris Clone | Score: {score}")
     clock = pygame.time.Clock()
@@ -255,9 +257,10 @@ def main():
         draw_window(screen, grid)
         pygame.display.set_caption(f"Python Tetris | Score: {score}")
         pygame.display.update()
+        await asyncio.sleep(0)  # Yield control to allow event loop to process
 
     print("Game Over! Final Score:", score)
     pygame.quit()
 
 if __name__ == "__main__":
-    main()
+   asyncio.run(main())
