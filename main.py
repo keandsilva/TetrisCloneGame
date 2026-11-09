@@ -163,6 +163,7 @@ def draw_window(surface, grid):
 # 4. MAIN GAME LOOP
 # ---------------------------------------------------------
 async def main():
+    await asyncio.sleep(0.1)  # Allow event loop to initialize
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Tetris Clone | Score: {score}")
     clock = pygame.time.Clock()
@@ -180,6 +181,7 @@ async def main():
         grid = create_grid(locked_positions)
         fall_time += clock.get_rawtime()
         clock.tick()
+        await asyncio.sleep(0)  # Yield control to allow event loop to process
 
         # Handle automatic gravity / fall down
         if fall_time / 1000 >= fall_speed:
