@@ -257,7 +257,7 @@ async def main():
         draw_window(screen, grid)
         pygame.display.set_caption(f"Python Tetris | Score: {score}")
         pygame.display.update()
-        await asyncio.sleep(0)  # Yield control to allow event loop to process
+        await asyncio.sleep(0.01)  # Yield control to allow event loop to process
 
     print("Game Over! Final Score:", score)
     pygame.quit()
