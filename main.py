@@ -165,103 +165,166 @@ def draw_window(surface, grid):
 async def main():
     await asyncio.sleep(0.1)  # Allow event loop to initialize
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("Tetris Clone | Score: {score}")
     clock = pygame.time.Clock()
 
-    locked_positions = {}
-    current_piece = get_shape()
+    running = True
+    while running:
+        # Initialize / Reset Game Variables for a new round
+        locked_positions = {}
+        current_piece = get_shape()
+        score = 0
+        fall_time = 0
+        fall_speed = 0.5  # Seconds per fall step
+        game_over = False
 
-    score = 0
-    
-    fall_time = 0
-    fall_speed = 0.5  # Seconds per fall step
-    game_over = False
+        # --- ACTIVE GAMEPLAY LOOP ---
+        while not game_over and running:
+            grid = create_grid(locked_positions)
+            fall_time += clock.get_rawtime()
+            clock.tick()
+            await asyncio.sleep(0)  # Yield control to allow event loop to process
 
-    while not game_over:
-        grid = create_grid(locked_positions)
-        fall_time += clock.get_rawtime()
-        clock.tick()
-        await asyncio.sleep(0)  # Yield control to allow event loop to process
-
-        # Handle automatic gravity / fall down
-        if fall_time / 1000 >= fall_speed:
-            fall_time = 0
-            current_piece.y += 1
-            if not valid_space(current_piece, grid) and current_piece.y > 0:
-                current_piece.y -= 1
-                # Lock piece in place
-                for pos in convert_shape_format(current_piece):
-                    locked_positions[pos] = current_piece.color
-                grid = create_grid(locked_positions)
-                lines_cleared = clear_rows(grid, locked_positions)
-                score += lines_cleared * 10  # Example scoring: 10 points per line
-                if any(y < 4 for (x, y) in locked_positions):
-                    game_over = True
-                
-                current_piece = get_shape()
-
-                if not valid_space(current_piece, grid):
-                    game_over = True
-
-        # Event Handling
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                game_over = True
-
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT or event.key == pygame.K_a:
-                    current_piece.x -= 1
-                    if not valid_space(current_piece, grid):
-                        current_piece.x += 1
-
-                elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
-                    current_piece.x += 1
-                    if not valid_space(current_piece, grid):
-                        current_piece.x -= 1
-
-                elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
-                    # Hard drop: keep moving down until it hits something
-                    while valid_space(current_piece, grid):
-                        current_piece.y += 1
-                    # Step back up to the last valid position
+            # Handle automatic gravity / fall down
+            if fall_time / 1000 >= fall_speed:
+                fall_time = 0
+                current_piece.y += 1
+                if not valid_space(current_piece, grid) and current_piece.y > 0:
                     current_piece.y -= 1
-                    
-                    # Lock the piece immediately and spawn a new one
+                    # Lock piece in place
                     for pos in convert_shape_format(current_piece):
                         locked_positions[pos] = current_piece.color
                     grid = create_grid(locked_positions)
                     lines_cleared = clear_rows(grid, locked_positions)
-                    score += lines_cleared * 10  # Example scoring: 10 points per line
-
+                    score += lines_cleared * 10
                     if any(y < 4 for (x, y) in locked_positions):
                         game_over = True
+                    
                     current_piece = get_shape()
+
                     if not valid_space(current_piece, grid):
                         game_over = True
 
-                elif event.key == pygame.K_UP or event.key == pygame.K_w:
-                    current_piece.rotate()
-                    if not valid_space(current_piece, grid):
-                        # Revert rotation if invalid
-                        for _ in range(3):
-                            current_piece.rotate()
+            # Event Handling (Supports Keyboard and Touchscreen Tap Zones)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                    game_over = True
 
-        # Update Grid with current falling piece
-        piece_coords = convert_shape_format(current_piece)
-        for x, y in piece_coords:
-            if y >= 0:
-                grid[y][x] = current_piece.color
+                # Desktop Keyboard Controls
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_LEFT or event.key == pygame.K_a:
+                        current_piece.x -= 1
+                        if not valid_space(current_piece, grid):
+                            current_piece.x += 1
+                    elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
+                        current_piece.x += 1
+                        if not valid_space(current_piece, grid):
+                            current_piece.x -= 1
+                    elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
+                        while valid_space(current_piece, grid):
+                            current_piece.y += 1
+                        current_piece.y -= 1
+                        for pos in convert_shape_format(current_piece):
+                            locked_positions[pos] = current_piece.color
+                        grid = create_grid(locked_positions)
+                        lines_cleared = clear_rows(grid, locked_positions)
+                        score += lines_cleared * 10
+                        if any(y < 4 for (x, y) in locked_positions):
+                            game_over = True
+                        current_piece = get_shape()
+                        if not valid_space(current_piece, grid):
+                            game_over = True
+                    elif event.key == pygame.K_UP or event.key == pygame.K_w:
+                        current_piece.rotate()
+                        if not valid_space(current_piece, grid):
+                            for _ in range(3):
+                                current_piece.rotate()
 
-        # Check line clears
-        
+                # Mobile Touchscreen Tap Zones
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    pos_x, pos_y = event.pos
+                    
+                    is_left = pos_x < SCREEN_WIDTH * 0.33
+                    is_right = pos_x > SCREEN_WIDTH * 0.66
+                    is_bottom = pos_y > SCREEN_HEIGHT * 0.75
 
-        # Draw Frame
-        draw_window(screen, grid)
-        pygame.display.set_caption(f"Python Tetris | Score: {score}")
-        pygame.display.update()
-        await asyncio.sleep(0.01)  # Yield control to allow event loop to process
+                    if is_left:
+                        current_piece.x -= 1
+                        if not valid_space(current_piece, grid):
+                            current_piece.x += 1
+                    elif is_right:
+                        current_piece.x += 1
+                        if not valid_space(current_piece, grid):
+                            current_piece.x -= 1
+                    elif is_bottom:
+                        while valid_space(current_piece, grid):
+                            current_piece.y += 1
+                        current_piece.y -= 1
+                        for pos in convert_shape_format(current_piece):
+                            locked_positions[pos] = current_piece.color
+                        grid = create_grid(locked_positions)
+                        lines_cleared = clear_rows(grid, locked_positions)
+                        score += lines_cleared * 10
+                        if any(y < 4 for (x, y) in locked_positions):
+                            game_over = True
+                        current_piece = get_shape()
+                        if not valid_space(current_piece, grid):
+                            game_over = True
+                    else:
+                        current_piece.rotate()
+                        if not valid_space(current_piece, grid):
+                            for _ in range(3):
+                                current_piece.rotate()
 
-    print("Game Over! Final Score:", score)
+            # Update Grid with current falling piece
+            piece_coords = convert_shape_format(current_piece)
+            for x, y in piece_coords:
+                if y >= 0:
+                    grid[y][x] = current_piece.color
+
+            # Draw Frame
+            draw_window(screen, grid)
+            pygame.display.set_caption(f"Python Tetris | Score: {score}")
+            pygame.display.update()
+            await asyncio.sleep(0.01)
+
+        # --- GAME OVER SCREEN LOOP ---
+        waiting_for_retry = True
+        font_large = pygame.font.Font(None, 42)
+        font_small = pygame.font.Font(None, 24)
+
+        while waiting_for_retry and running:
+            # Draw final game state in background
+            draw_window(screen, grid)
+
+            # Dark overlay box
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            overlay.set_alpha(200)
+            overlay.fill(BLACK)
+            screen.blit(overlay, (0, 0))
+
+            # Render Game Over text
+            go_surf = font_large.render("GAME OVER", True, RED)
+            score_surf = font_small.render(f"Final Score: {score}", True, WHITE)
+            retry_surf = font_small.render("Tap Screen or Press Space to Retry", True, CYAN)
+
+            screen.blit(go_surf, (SCREEN_WIDTH // 2 - go_surf.get_width() // 2, SCREEN_HEIGHT // 3))
+            screen.blit(score_surf, (SCREEN_WIDTH // 2 - score_surf.get_width() // 2, SCREEN_HEIGHT // 2))
+            screen.blit(retry_surf, (SCREEN_WIDTH // 2 - retry_surf.get_width() // 2, SCREEN_HEIGHT // 2 + 50))
+
+            pygame.display.update()
+            await asyncio.sleep(0.05)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                    waiting_for_retry = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
+                        waiting_for_retry = False
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    waiting_for_retry = False
+
     pygame.quit()
 
 if __name__ == "__main__":
