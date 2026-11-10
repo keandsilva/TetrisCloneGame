@@ -176,6 +176,7 @@ async def main():
         fall_time = 0
         fall_speed = 0.5  # Seconds per fall step
         game_over = False
+        touch_start_pos = None
 
         # --- ACTIVE GAMEPLAY LOOP ---
         while not game_over and running:
@@ -204,7 +205,7 @@ async def main():
                     if not valid_space(current_piece, grid):
                         game_over = True
 
-            # Event Handling (Supports Keyboard and Touchscreen Tap Zones)
+            # Event Handling (Supports Keyboard and Swipe Gestures)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
@@ -240,41 +241,60 @@ async def main():
                             for _ in range(3):
                                 current_piece.rotate()
 
-                # Mobile Touchscreen Tap Zones
+                # 1. Record touch start position
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    pos_x, pos_y = event.pos
-                    
-                    is_left = pos_x < SCREEN_WIDTH * 0.33
-                    is_right = pos_x > SCREEN_WIDTH * 0.66
-                    is_bottom = pos_y > SCREEN_HEIGHT * 0.75
+                    touch_start_pos = event.pos
 
-                    if is_left:
-                        current_piece.x -= 1
-                        if not valid_space(current_piece, grid):
-                            current_piece.x += 1
-                    elif is_right:
-                        current_piece.x += 1
-                        if not valid_space(current_piece, grid):
-                            current_piece.x -= 1
-                    elif is_bottom:
-                        while valid_space(current_piece, grid):
-                            current_piece.y += 1
-                        current_piece.y -= 1
-                        for pos in convert_shape_format(current_piece):
-                            locked_positions[pos] = current_piece.color
-                        grid = create_grid(locked_positions)
-                        lines_cleared = clear_rows(grid, locked_positions)
-                        score += lines_cleared * 10
-                        if any(y < 4 for (x, y) in locked_positions):
-                            game_over = True
-                        current_piece = get_shape()
-                        if not valid_space(current_piece, grid):
-                            game_over = True
+                # 2. Calculate swipe direction upon release
+                elif event.type == pygame.MOUSEBUTTONUP and touch_start_pos is not None:
+                    touch_end_pos = event.pos
+                    dx = touch_end_pos[0] - touch_start_pos[0]
+                    dy = touch_end_pos[1] - touch_start_pos[1]
+                    touch_start_pos = None
+
+                    threshold = 30  # Minimum pixel distance for a valid swipe
+
+                    if abs(dx) > abs(dy):
+                        if abs(dx) > threshold:
+                            if dx > 0:
+                                # Swipe Right -> Move Right
+                                current_piece.x += 1
+                                if not valid_space(current_piece, grid):
+                                    current_piece.x -= 1
+                            else:
+                                # Swipe Left -> Move Left
+                                current_piece.x -= 1
+                                if not valid_space(current_piece, grid):
+                                    current_piece.x += 1
                     else:
-                        current_piece.rotate()
-                        if not valid_space(current_piece, grid):
-                            for _ in range(3):
+                        if abs(dy) > threshold:
+                            if dy > 0:
+                                # Swipe Down -> Hard Drop
+                                while valid_space(current_piece, grid):
+                                    current_piece.y += 1
+                                current_piece.y -= 1
+                                for pos in convert_shape_format(current_piece):
+                                    locked_positions[pos] = current_piece.color
+                                grid = create_grid(locked_positions)
+                                lines_cleared = clear_rows(grid, locked_positions)
+                                score += lines_cleared * 10
+                                if any(y < 4 for (x, y) in locked_positions):
+                                    game_over = True
+                                current_piece = get_shape()
+                                if not valid_space(current_piece, grid):
+                                    game_over = True
+                            else:
+                                # Swipe Up -> Rotate
                                 current_piece.rotate()
+                                if not valid_space(current_piece, grid):
+                                    for _ in range(3):
+                                        current_piece.rotate()
+                        else:
+                            # Quick tap without dragging -> Fallback to Rotate
+                            current_piece.rotate()
+                            if not valid_space(current_piece, grid):
+                                for _ in range(3):
+                                    current_piece.rotate()
 
             # Update Grid with current falling piece
             piece_coords = convert_shape_format(current_piece)
@@ -294,16 +314,13 @@ async def main():
         font_small = pygame.font.Font(None, 24)
 
         while waiting_for_retry and running:
-            # Draw final game state in background
             draw_window(screen, grid)
 
-            # Dark overlay box
             overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
             overlay.set_alpha(200)
             overlay.fill(BLACK)
             screen.blit(overlay, (0, 0))
 
-            # Render Game Over text
             go_surf = font_large.render("GAME OVER", True, RED)
             score_surf = font_small.render(f"Final Score: {score}", True, WHITE)
             retry_surf = font_small.render("Tap Screen or Press Space to Retry", True, CYAN)
